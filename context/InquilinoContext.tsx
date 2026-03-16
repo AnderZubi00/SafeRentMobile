@@ -1,0 +1,186 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  obtenerSolicitudesInquilino,
+  type Solicitud,
+} from "@/lib/solicitudes";
+import { obtenerPagosInquilino, type Pago } from "@/lib/pagos";
+import { supabase } from "@/lib/supabase";
+
+export interface ContratoResumen {
+  id: string;
+  firmado_propietario: boolean;
+  firmado_inquilino: boolean;
+  pdf_borrador_url: string | null;
+  pdf_final_url: string | null;
+  fecha_firma_completa: string | null;
+}
+
+export interface SolicitudConContrato extends Solicitud {
+  contrato?: ContratoResumen | null;
+}
+
+export interface DocumentoInquilino {
+  id: string;
+  tipo: "identidad" | "temporalidad" | "contrato";
+  nombre: string;
+  url: string;
+  estado: "verificado" | "firmado" | "pendiente" | "rechazado";
+  fecha: string;
+  viviendaTitulo: string;
+  viviendaCiudad: string;
+  solicitudId: string;
+  motivo?: string;
+}
+
+interface InquilinoState {
+  solicitudes: SolicitudConContrato[];
+  documentos: DocumentoInquilino[];
+  pagos: Pago[];
+  cargando: boolean;
+  recargar: () => Promise<void>;
+}
+
+const InquilinoContext = createContext<InquilinoState>({
+  solicitudes: [],
+  documentos: [],
+  pagos: [],
+  cargando: true,
+  recargar: async () => {},
+});
+
+function derivarDocumentos(
+  solicitudes: SolicitudConContrato[]
+): DocumentoInquilino[] {
+  const docs: DocumentoInquilino[] = [];
+
+  for (const sol of solicitudes) {
+    const viviendaTitulo = sol.viviendas?.titulo ?? "Vivienda";
+    const viviendaCiudad = sol.viviendas?.ciudad ?? "";
+    const estadoDoc =
+      sol.estado === "RECHAZADA"
+        ? ("rechazado" as const)
+        : sol.estado === "ACEPTADA"
+          ? ("verificado" as const)
+          : ("pendiente" as const);
+
+    if (sol.documento_identidad_url) {
+      docs.push({
+        id: `dni-${sol.id}`,
+        tipo: "identidad",
+        nombre: "Documento de identidad (DNI/NIE)",
+        url: sol.documento_identidad_url,
+        estado: estadoDoc,
+        fecha: sol.fecha_creacion,
+        viviendaTitulo,
+        viviendaCiudad,
+        solicitudId: sol.id,
+      });
+    }
+
+    if (sol.documento_justificativo_url) {
+      const motivoLabel =
+        sol.motivo === "Estudios"
+          ? "Matrícula / Justificante de estudios"
+          : sol.motivo === "Trabajo temporal"
+            ? "Contrato laboral / Justificante de trabajo"
+            : `Justificante — ${sol.motivo_detalle ?? sol.motivo}`;
+
+      docs.push({
+        id: `just-${sol.id}`,
+        tipo: "temporalidad",
+        nombre: motivoLabel,
+        url: sol.documento_justificativo_url,
+        estado: estadoDoc,
+        fecha: sol.fecha_creacion,
+        viviendaTitulo,
+        viviendaCiudad,
+        solicitudId: sol.id,
+        motivo: sol.motivo,
+      });
+    }
+
+    if (sol.contrato?.pdf_borrador_url) {
+      const firmadoAmbos =
+        sol.contrato.firmado_propietario && sol.contrato.firmado_inquilino;
+      docs.push({
+        id: `contrato-${sol.id}`,
+        tipo: "contrato",
+        nombre: `Contrato temporal — ${viviendaTitulo}`,
+        url: sol.contrato.pdf_borrador_url,
+        estado: firmadoAmbos ? "firmado" : "pendiente",
+        fecha: sol.contrato.fecha_firma_completa ?? sol.fecha_creacion,
+        viviendaTitulo,
+        viviendaCiudad,
+        solicitudId: sol.id,
+      });
+    }
+  }
+
+  return docs;
+}
+
+export function InquilinoProvider({ children }: { children: ReactNode }) {
+  const [solicitudes, setSolicitudes] = useState<SolicitudConContrato[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoInquilino[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [cargando, setCargando] = useState(true);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    try {
+      const [solResult, pagosResult] = await Promise.all([
+        obtenerSolicitudesInquilino(),
+        obtenerPagosInquilino(),
+      ]);
+
+      const conContratos: SolicitudConContrato[] = [];
+
+      for (const sol of solResult.data) {
+        let contrato: ContratoResumen | null = null;
+        if (sol.estado === "ACEPTADA") {
+          const { data: rows } = await supabase.rpc(
+            "get_contrato_by_solicitud",
+            { p_solicitud_id: sol.id }
+          );
+          contrato = rows && rows.length > 0 ? rows[0] : null;
+        }
+        conContratos.push({ ...sol, contrato });
+      }
+
+      setSolicitudes(conContratos);
+      setDocumentos(derivarDocumentos(conContratos));
+      setPagos(pagosResult.data);
+    } catch (err) {
+      console.error("Error cargando datos del inquilino:", err);
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  const value = useMemo<InquilinoState>(
+    () => ({ solicitudes, documentos, pagos, cargando, recargar: cargar }),
+    [solicitudes, documentos, pagos, cargando, cargar]
+  );
+
+  return (
+    <InquilinoContext.Provider value={value}>
+      {children}
+    </InquilinoContext.Provider>
+  );
+}
+
+export function useInquilino() {
+  return useContext(InquilinoContext);
+}
