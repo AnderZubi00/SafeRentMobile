@@ -11,6 +11,8 @@ Lee **solo los skills activados** por el contexto de la tarea.
 |---|---|
 | Flujo de alquiler (solicitudes, contratos, pagos) | `.agent/skills/rental-flow.skill.md` |
 | Verificación de identidad / KYC / cámara | `.agent/skills/kyc-verification.skill.md` |
+| NFC, chip DNI, ICAO, BAC, MRZ, kMRZ, ePassport, pasaporte electrónico | `.agent/skills/nfc-passport.skill.md` |
+| KYC + NFC (lectura de chip durante verificación de identidad) | `.agent/skills/kyc-verification.skill.md` + `.agent/skills/nfc-passport.skill.md` |
 | Componentes UI, diseño, pantallas, estilos | `.agent/skills/nativewind-ui.skill.md` |
 | Navegación, rutas, layouts, tab guards | `.agent/skills/navigation.skill.md` |
 | Queries Supabase, RLS, storage, migraciones | `.agent/skills/supabase-data.skill.md` |
