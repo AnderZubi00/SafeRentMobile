@@ -17,7 +17,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.saferent.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NFCReaderUsageDescription": "SafeRent necesita acceso al NFC para verificar la autenticidad de tu DNI",
+        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": [
+          "A0000002471001"
+        ]
+      },
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
       }
     },
     "android": {
@@ -29,7 +36,8 @@
       },
       "package": "com.saferent.mobile",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.NFC"
       ]
     },
     "web": {
@@ -37,6 +45,14 @@
       "bundler": "metro"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ],
       "expo-router",
       "expo-secure-store",
       [
@@ -49,6 +65,18 @@
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SafeRent necesita acceso a tu cámara para verificar tu identidad"
+        }
+      ],
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "SafeRent necesita NFC para verificar la autenticidad de tu DNI"
         }
       ]
     ],

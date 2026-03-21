@@ -31,21 +31,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function cargarPerfil() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          // Token inválido o expirado — limpiar sesión corrupta
+          await supabase.auth.signOut();
+          setUsuario(null);
+          return;
+        }
+
+        const { data: perfil } = await supabase
+          .from("usuarios")
+          .select("id, email, nombre_completo, rol, verificado_kyc")
+          .eq("id", user.id)
+          .single();
+
+        setUsuario((perfil as UsuarioAuth) ?? null);
+      } catch {
+        await supabase.auth.signOut();
         setUsuario(null);
-        return;
       }
-
-      const { data: perfil } = await supabase
-        .from("usuarios")
-        .select("id, email, nombre_completo, rol, verificado_kyc")
-        .eq("id", user.id)
-        .single();
-
-      setUsuario((perfil as UsuarioAuth) ?? null);
     }
 
     cargarPerfil();

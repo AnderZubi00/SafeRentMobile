@@ -1,6 +1,7 @@
-import { View, Text, ScrollView, RefreshControl } from "react-native";
+import { View, Text, ScrollView, RefreshControl, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Home, FileText, CreditCard, Clock } from "lucide-react-native";
+import { Home, FileText, CreditCard, Clock, ShieldCheck } from "lucide-react-native";
+import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { useInquilino } from "@/context/InquilinoContext";
 import { StatsCard } from "@/components/StatsCard";
@@ -38,6 +39,21 @@ export default function InquilinoDashboard() {
             Panel del inquilino
           </Text>
         </View>
+
+        {/* Banner KYC — solo si no está verificado */}
+        {usuario && !usuario.verificado_kyc && (
+          <Pressable
+            className="mx-5 mt-3 rounded-xl bg-indigo-50 border border-indigo-200 px-4 py-3 flex-row items-center gap-3 active:bg-indigo-100"
+            onPress={() => router.push("/kyc-movil")}
+          >
+            <ShieldCheck size={20} color="#6366f1" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-indigo-700">Verificar identidad</Text>
+              <Text className="text-xs text-indigo-500 mt-0.5">Necesitás verificar tu DNI para enviar solicitudes</Text>
+            </View>
+            <Text className="text-xs font-medium text-indigo-600">→</Text>
+          </Pressable>
+        )}
 
         {cargando ? (
           <View className="px-5 gap-4 mt-4">
