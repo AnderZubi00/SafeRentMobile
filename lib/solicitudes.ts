@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { api } from "./api";
 
 export interface Solicitud {
   id: string;
@@ -14,7 +14,7 @@ export interface Solicitud {
   estado: "PENDIENTE" | "ACEPTADA" | "RECHAZADA";
   motivo_rechazo: string | null;
   fecha_creacion: string;
-  viviendas?: {
+  vivienda?: {
     id: string;
     titulo: string;
     ciudad: string;
@@ -27,12 +27,15 @@ export interface Solicitud {
     estancia_maxima: number;
     propietario_id: string;
   };
-  usuarios?: {
+  inquilino?: {
     id: string;
     nombre_completo: string;
     email: string;
     dni_nie: string | null;
   };
+  // Aliases for backward compatibility
+  viviendas?: Solicitud["vivienda"];
+  usuarios?: Solicitud["inquilino"];
 }
 
 export interface CrearSolicitudInput {
@@ -48,81 +51,60 @@ export async function obtenerSolicitudesPropietario(): Promise<{
   data: Solicitud[];
   error: string | null;
 }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "No autenticado" };
-
-  const { data, error } = await supabase
-    .from("solicitudes")
-    .select(
-      "*, viviendas(id, titulo, ciudad, barrio, direccion, precio_mes, fianza_importe, fotos, estancia_minima, estancia_maxima, propietario_id), usuarios!solicitudes_inquilino_id_fkey(id, nombre_completo, email, dni_nie)"
-    )
-    .eq("propietario_id", user.id)
-    .order("fecha_creacion", { ascending: false });
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Solicitud[]) ?? [], error: null };
+  try {
+    const data = await api.get<Solicitud[]>("/solicitudes/propietario");
+    const mapped = data.map((s) => ({
+      ...s,
+      viviendas: s.vivienda,
+      usuarios: s.inquilino,
+    }));
+    return { data: mapped, error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function obtenerSolicitudesInquilino(): Promise<{
   data: Solicitud[];
   error: string | null;
 }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "No autenticado" };
-
-  const { data, error } = await supabase
-    .from("solicitudes")
-    .select(
-      "*, viviendas(id, titulo, ciudad, barrio, direccion, precio_mes, fianza_importe, fotos, estancia_minima, estancia_maxima, propietario_id)"
-    )
-    .eq("inquilino_id", user.id)
-    .order("fecha_creacion", { ascending: false });
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Solicitud[]) ?? [], error: null };
+  try {
+    const data = await api.get<Solicitud[]>("/solicitudes/inquilino");
+    const mapped = data.map((s) => ({ ...s, viviendas: s.vivienda }));
+    return { data: mapped, error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function aceptarSolicitud(
   id: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
-    .from("solicitudes")
-    .update({ estado: "ACEPTADA" })
-    .eq("id", id);
-
-  if (error) return { error: error.message };
-  return { error: null };
+  try {
+    await api.post(`/solicitudes/${id}/aceptar`);
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function rechazarSolicitud(
   id: string,
   motivo: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
-    .from("solicitudes")
-    .update({ estado: "RECHAZADA", motivo_rechazo: motivo })
-    .eq("id", id);
-
-  if (error) return { error: error.message };
-  return { error: null };
+  try {
+    await api.post(`/solicitudes/${id}/rechazar`, { motivo_rechazo: motivo });
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function contarSolicitudesPendientes(): Promise<number> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return 0;
-
-  const { count, error } = await supabase
-    .from("solicitudes")
-    .select("*", { count: "exact", head: true })
-    .eq("propietario_id", user.id)
-    .eq("estado", "PENDIENTE");
-
-  if (error) return 0;
-  return count ?? 0;
+  try {
+    const count = await api.get<number>("/solicitudes/pendientes/count");
+    return count;
+  } catch {
+    return 0;
+  }
 }

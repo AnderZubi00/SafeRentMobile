@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ShieldCheck, ShieldX } from "lucide-react-native";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -30,14 +30,14 @@ export default function VerificacionScreen() {
 
   const cargar = useCallback(async () => {
     setCargando(true);
-    const { data } = await supabase
-      .from("usuarios")
-      .select("id, nombre_completo, email, rol, verificado_kyc, dni_nie")
-      .eq("rol", "PROPIETARIO")
-      .order("verificado_kyc", { ascending: true });
-
-    setUsuarios((data as UsuarioKYC[]) ?? []);
-    setCargando(false);
+    try {
+      const data = await api.get<UsuarioKYC[]>("/admin/propietarios");
+      setUsuarios(data);
+    } catch (err) {
+      console.error("Error cargando propietarios:", err);
+    } finally {
+      setCargando(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -54,11 +54,12 @@ export default function VerificacionScreen() {
         {
           text: actual ? "Revocar" : "Verificar",
           onPress: async () => {
-            await supabase
-              .from("usuarios")
-              .update({ verificado_kyc: !actual })
-              .eq("id", id);
-            await cargar();
+            try {
+              await api.patch(`/admin/usuarios/${id}/kyc`, {});
+              await cargar();
+            } catch (err) {
+              console.error("Error toggling KYC:", err);
+            }
           },
         },
       ]

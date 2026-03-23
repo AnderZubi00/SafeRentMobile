@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, ScrollView, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Users, Home, ShieldCheck, AlertTriangle } from "lucide-react-native";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { StatsCard } from "@/components/StatsCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -25,25 +25,8 @@ export default function AdminDashboard() {
   async function cargar() {
     setCargando(true);
     try {
-      const [usuarios, viviendas, verificadas, pendientes] = await Promise.all([
-        supabase.from("usuarios").select("*", { count: "exact", head: true }),
-        supabase.from("viviendas").select("*", { count: "exact", head: true }),
-        supabase
-          .from("viviendas")
-          .select("*", { count: "exact", head: true })
-          .eq("verificada", true),
-        supabase
-          .from("solicitudes")
-          .select("*", { count: "exact", head: true })
-          .eq("estado", "PENDIENTE"),
-      ]);
-
-      setStats({
-        totalUsuarios: usuarios.count ?? 0,
-        totalViviendas: viviendas.count ?? 0,
-        viviendasVerificadas: verificadas.count ?? 0,
-        solicitudesPendientes: pendientes.count ?? 0,
-      });
+      const data = await api.get<AdminStats>("/admin/stats");
+      setStats(data);
     } catch (err) {
       console.error("Error cargando stats admin:", err);
     } finally {

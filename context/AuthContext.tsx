@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import { api, setBackendToken, clearBackendToken } from "@/lib/api";
 import type { UsuarioAuth } from "@/lib/auth";
 
 interface AuthState {
@@ -32,28 +33,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function cargarPerfil() {
       try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        if (error || !user) {
-          // Token inválido o expirado — limpiar sesión corrupta
+        // Intentar obtener el usuario del backend con el JWT guardado
+        const perfil = await api.get<UsuarioAuth>("/auth/me");
+        setUsuario(perfil);
+      } catch {
+        // No hay JWT válido — intentar exchange con Supabase session
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const result = await api.post<{
+              access_token: string;
+              usuario: UsuarioAuth;
+            }>("/auth/exchange", { supabase_token: session.access_token });
+            await setBackendToken(result.access_token);
+            setUsuario(result.usuario);
+          } else {
+            setUsuario(null);
+          }
+        } catch {
           await supabase.auth.signOut();
           setUsuario(null);
-          return;
         }
-
-        const { data: perfil } = await supabase
-          .from("usuarios")
-          .select("id, email, nombre_completo, rol, verificado_kyc")
-          .eq("id", user.id)
-          .single();
-
-        setUsuario((perfil as UsuarioAuth) ?? null);
-      } catch {
-        await supabase.auth.signOut();
-        setUsuario(null);
       }
     }
 
@@ -61,20 +61,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.access_token) {
+        await clearBackendToken();
         setUsuario(null);
         return;
       }
 
-      supabase
-        .from("usuarios")
-        .select("id, email, nombre_completo, rol, verificado_kyc")
-        .eq("id", session.user.id)
-        .single()
-        .then(({ data: perfil }) => {
-          setUsuario((perfil as UsuarioAuth) ?? null);
-        });
+      try {
+        const result = await api.post<{
+          access_token: string;
+          usuario: UsuarioAuth;
+        }>("/auth/exchange", { supabase_token: session.access_token });
+        await setBackendToken(result.access_token);
+        setUsuario(result.usuario);
+      } catch {
+        setUsuario(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -82,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const cerrar = useCallback(async () => {
     await supabase.auth.signOut();
+    await clearBackendToken();
     setUsuario(null);
   }, []);
 

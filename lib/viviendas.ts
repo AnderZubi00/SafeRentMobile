@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { api } from "./api";
 
 export type MotivoTemporalidad =
   | "Estudios"
@@ -6,13 +6,6 @@ export type MotivoTemporalidad =
   | "Obras"
   | "Salud"
   | "Otros";
-
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const BUCKET = "viviendas-fotos";
-
-export function getPublicPhotoUrl(path: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-}
 
 export interface Vivienda {
   id: string;
@@ -69,109 +62,80 @@ export interface FiltrosVivienda {
 export async function publicarVivienda(
   input: PublicarViviendaInput
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "No estás autenticado" };
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .insert({
-      propietario_id: user.id,
-      ...input,
-      activa: true,
-      verificada: false,
-      fotos: [],
-    })
-    .select()
-    .single();
-
-  if (error || !data)
-    return { data: null, error: error?.message ?? "Error al guardar" };
-  return { data: data as Vivienda, error: null };
+  try {
+    const data = await api.post<Vivienda>("/viviendas", input);
+    return { data, error: null };
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Error al publicar vivienda",
+    };
+  }
 }
 
 export async function obtenerViviendas(
   filtros?: FiltrosVivienda
 ): Promise<{ data: Vivienda[]; error: string | null }> {
-  let query = supabase
-    .from("viviendas")
-    .select("*")
-    .eq("activa", true)
-    .order("fecha_creacion", { ascending: false });
+  try {
+    const params = new URLSearchParams();
+    if (filtros?.ciudad && filtros.ciudad !== "todas")
+      params.set("ciudad", filtros.ciudad);
+    if (filtros?.motivo && filtros.motivo !== "todos")
+      params.set("motivo", filtros.motivo);
+    if (filtros?.precioMin !== undefined)
+      params.set("precioMin", String(filtros.precioMin));
+    if (filtros?.precioMax !== undefined)
+      params.set("precioMax", String(filtros.precioMax));
+    if (filtros?.habitaciones !== undefined && filtros.habitaciones > 0)
+      params.set("habitaciones", String(filtros.habitaciones));
 
-  if (filtros?.ciudad && filtros.ciudad !== "todas") {
-    query = query.ilike("ciudad", `%${filtros.ciudad}%`);
+    const query = params.toString();
+    const data = await api.get<Vivienda[]>(
+      `/viviendas${query ? `?${query}` : ""}`
+    );
+    return { data, error: null };
+  } catch (e) {
+    return {
+      data: [],
+      error: e instanceof Error ? e.message : "Error al obtener viviendas",
+    };
   }
-  if (filtros?.motivo && filtros.motivo !== "todos") {
-    query = query.contains("motivos", [filtros.motivo]);
-  }
-  if (filtros?.precioMin !== undefined) {
-    query = query.gte("precio_mes", filtros.precioMin);
-  }
-  if (filtros?.precioMax !== undefined) {
-    query = query.lte("precio_mes", filtros.precioMax);
-  }
-  if (filtros?.habitaciones !== undefined && filtros.habitaciones > 0) {
-    query = query.gte("habitaciones", filtros.habitaciones);
-  }
-
-  const { data, error } = await query;
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Vivienda[]) ?? [], error: null };
 }
 
 export async function obtenerViviendaById(
   id: string
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from("viviendas")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) return { data: null, error: error.message };
-  return { data: data as Vivienda, error: null };
+  try {
+    const data = await api.get<Vivienda>(`/viviendas/${id}`);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function obtenerMisViviendas(): Promise<{
   data: Vivienda[];
   error: string | null;
 }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "No estás autenticado" };
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .select("*")
-    .eq("propietario_id", user.id)
-    .order("fecha_creacion", { ascending: false });
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Vivienda[]) ?? [], error: null };
+  try {
+    const data = await api.get<Vivienda[]>("/viviendas/mis-viviendas");
+    return { data, error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function actualizarVivienda(
   id: string,
-  input: Partial<PublicarViviendaInput>
+  input: Partial<PublicarViviendaInput & { activa?: boolean }>
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "No estás autenticado" };
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .update(input)
-    .eq("id", id)
-    .eq("propietario_id", user.id)
-    .select()
-    .single();
-
-  if (error || !data)
-    return { data: null, error: error?.message ?? "Error al actualizar" };
-  return { data: data as Vivienda, error: null };
+  try {
+    const data = await api.patch<Vivienda>(`/viviendas/${id}`, input);
+    return { data, error: null };
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Error al actualizar",
+    };
+  }
 }

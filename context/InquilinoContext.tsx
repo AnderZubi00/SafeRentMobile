@@ -12,7 +12,7 @@ import {
   type Solicitud,
 } from "@/lib/solicitudes";
 import { obtenerPagosInquilino, type Pago } from "@/lib/pagos";
-import { supabase } from "@/lib/supabase";
+import { obtenerContratoBySolicitud } from "@/lib/contratos";
 
 export interface ContratoResumen {
   id: string;
@@ -146,11 +146,8 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
       for (const sol of solResult.data) {
         let contrato: ContratoResumen | null = null;
         if (sol.estado === "ACEPTADA") {
-          const { data: rows } = await supabase.rpc(
-            "get_contrato_by_solicitud",
-            { p_solicitud_id: sol.id }
-          );
-          contrato = rows && rows.length > 0 ? rows[0] : null;
+          const { data } = await obtenerContratoBySolicitud(sol.id);
+          contrato = data;
         }
         conContratos.push({ ...sol, contrato });
       }

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { api, setBackendToken, clearBackendToken } from "./api";
 
 export type Rol = "INQUILINO" | "PROPIETARIO" | "ADMINISTRADOR";
 
@@ -21,6 +22,25 @@ export function rutaSegunRol(rol: Rol): string {
   }
 }
 
+/**
+ * Intercambia un token de Supabase por un JWT del backend.
+ * En registro, pasa nombre_completo y rol para crear el perfil automáticamente.
+ */
+async function exchangeForBackendJwt(
+  supabaseAccessToken: string,
+  registroData?: { nombre_completo: string; rol: Rol }
+): Promise<UsuarioAuth> {
+  const result = await api.post<{
+    access_token: string;
+    usuario: UsuarioAuth;
+  }>("/auth/exchange", {
+    supabase_token: supabaseAccessToken,
+    ...registroData,
+  });
+  await setBackendToken(result.access_token);
+  return result.usuario;
+}
+
 export async function loginConSupabase(
   email: string,
   password: string
@@ -40,18 +60,7 @@ export async function loginConSupabase(
     throw new Error(error.message);
   }
 
-  const { data: perfil, error: perfilError } = await supabase
-    .from("usuarios")
-    .select("id, email, nombre_completo, rol, verificado_kyc")
-    .eq("id", data.user.id)
-    .single();
-
-  if (perfilError || !perfil) {
-    await supabase.auth.signOut();
-    throw new Error("No se encontró el perfil del usuario");
-  }
-
-  return perfil as UsuarioAuth;
+  return exchangeForBackendJwt(data.session.access_token);
 }
 
 export async function registrarConSupabase(
@@ -76,42 +85,33 @@ export async function registrarConSupabase(
     throw new Error("No se pudo crear el usuario");
   }
 
-  const { data: perfil, error: perfilError } = await supabase
-    .from("usuarios")
-    .insert({
-      id: data.user.id,
-      email,
+  // Exchange for backend JWT — el backend crea el perfil automáticamente
+  if (data.session?.access_token) {
+    return exchangeForBackendJwt(data.session.access_token, {
       nombre_completo,
       rol,
-      contrasena_hash: "supabase_managed",
-    })
-    .select("id, email, nombre_completo, rol, verificado_kyc")
-    .single();
-
-  if (perfilError || !perfil) {
-    throw new Error(
-      "Error al guardar el perfil: " + (perfilError?.message ?? "")
-    );
+    });
   }
 
-  return perfil as UsuarioAuth;
+  // Si no hay sesión inmediata (email confirmation), devolver datos básicos
+  return {
+    id: data.user.id,
+    email,
+    nombre_completo,
+    rol,
+    verificado_kyc: false,
+  };
 }
 
 export async function cerrarSesion(): Promise<void> {
   await supabase.auth.signOut();
+  await clearBackendToken();
 }
 
 export async function obtenerUsuarioActual(): Promise<UsuarioAuth | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("id, email, nombre_completo, rol, verificado_kyc")
-    .eq("id", user.id)
-    .single();
-
-  return (perfil as UsuarioAuth) ?? null;
+  try {
+    return await api.get<UsuarioAuth>("/auth/me");
+  } catch {
+    return null;
+  }
 }

@@ -25,11 +25,24 @@ import {
   Wifi,
   AlertCircle,
 } from "lucide-react-native";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { verifyPassportNfc, type NfcPassportResult } from "@/lib/nfc-passport";
 
-const WEB_API_URL =
-  process.env.EXPO_PUBLIC_WEB_URL ?? "http://localhost:3000";
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,26 +174,24 @@ export default function KycMovilScreen() {
       const finalScore = calcularScoreFinal(ocr.safe_score, nfcExitoso);
       const { datos_extraidos } = ocr;
 
-      await supabase
-        .from("kyc_sesiones")
-        .update({
-          estado: "COMPLETADO",
-          safe_score: finalScore,
-          nfc_verificado: nfcExitoso,
-          nombre_extraido: datos_extraidos.nombre,
-          apellidos_extraidos: datos_extraidos.apellidos,
-          dni_extraido: datos_extraidos.numero_documento,
-          tipo_documento: ocr.tipo_documento,
-          datos_raw: {
-            ocr: ocr,
-            nfc_resultado: {
-              exitoso: nfcExitoso,
-              intentos: intentosNfc,
-              ...(!nfcExitoso && { razon: nfcMensaje }),
-            },
+      await api.patch(`/kyc/mobile/estado`, {
+        token,
+        estado: "COMPLETADO",
+        safe_score: finalScore,
+        nfc_verificado: nfcExitoso,
+        nombre_extraido: datos_extraidos.nombre,
+        apellidos_extraidos: datos_extraidos.apellidos,
+        dni_extraido: datos_extraidos.numero_documento,
+        tipo_documento: ocr.tipo_documento,
+        datos_raw: {
+          ocr: ocr,
+          nfc_resultado: {
+            exitoso: nfcExitoso,
+            intentos: intentosNfc,
+            ...(!nfcExitoso && { razon: nfcMensaje }),
           },
-        })
-        .eq("id", sesionId);
+        },
+      });
 
       setSafeScore(finalScore);
       setNfcVerificado(nfcExitoso);
@@ -293,41 +304,31 @@ export default function KycMovilScreen() {
     setMensajeError(null);
 
     try {
-      const { data: sesion, error } = await supabase
-        .from("kyc_sesiones")
-        .select("*")
-        .eq("token", token)
-        .single();
+      const result = await api.post<{
+        valid: boolean;
+        reason?: string;
+        estado: string;
+        safe_score?: number;
+        nfc_verificado?: boolean;
+        sesionId?: string;
+      }>("/kyc/mobile/validate", { token });
 
-      if (error || !sesion) {
-        setMensajeError("QR caducado o inválido. Genera uno nuevo desde la web.");
+      if (!result.valid) {
+        if (result.reason === "expired") {
+          setMensajeError("QR caducado. Genera uno nuevo desde la web.");
+        } else {
+          setMensajeError("Esta sesión ya fue procesada. Genera un nuevo QR desde la web.");
+        }
         setEstado("error");
         return;
       }
 
-      if (new Date(sesion.expira_en) <= new Date()) {
-        setMensajeError("QR caducado. Genera uno nuevo desde la web.");
-        setEstado("error");
-        return;
-      }
-
-      if (sesion.estado === "COMPLETADO") {
-        setSafeScore(sesion.safe_score);
-        setNfcVerificado(sesion.nfc_verificado ?? false);
+      if (result.estado === "COMPLETADO") {
+        setSafeScore(result.safe_score ?? 0);
+        setNfcVerificado(result.nfc_verificado ?? false);
         setEstado("success");
         return;
       }
-
-      if (sesion.estado !== "PENDIENTE") {
-        setMensajeError("Esta sesión ya fue procesada. Genera un nuevo QR desde la web.");
-        setEstado("error");
-        return;
-      }
-
-      await supabase
-        .from("kyc_sesiones")
-        .update({ estado: "ESCANEANDO" })
-        .eq("id", sesionId);
 
       if (!permission?.granted) {
         const { granted } = await requestPermission();
@@ -388,17 +389,19 @@ export default function KycMovilScreen() {
       formData.append("frente", { uri: frenteUri, type: "image/jpeg", name: "frente.jpg" } as unknown as Blob);
       formData.append("reverso", { uri: foto.uri, type: "image/jpeg", name: "reverso.jpg" } as unknown as Blob);
 
-      const respuesta = await fetch(`${WEB_API_URL}/api/kyc/analizar?mode=completo`, {
-        method: "POST",
-        body: formData,
-      });
+      // Convertir imágenes a base64 para el backend
+      const frenteResp = await fetch(frenteUri);
+      const frenteBlob = await frenteResp.blob();
+      const frenteBase64 = await blobToBase64(frenteBlob);
 
-      if (!respuesta.ok) {
-        const cuerpo = await respuesta.json().catch(() => null);
-        throw new Error(cuerpo?.error ?? `Error del servidor (${respuesta.status})`);
-      }
+      const reversoResp = await fetch(foto.uri);
+      const reversoBlob = await reversoResp.blob();
+      const reversoBase64 = await blobToBase64(reversoBlob);
 
-      const ocr: OcrResult & { cd_ok?: boolean } = await respuesta.json();
+      const ocr: OcrResult & { cd_ok?: boolean } = await api.post(
+        "/kyc/mobile/analizar-completo",
+        { frente_base64: frenteBase64, reverso_base64: reversoBase64 }
+      );
       console.log("[OCR] Resultado completo:", JSON.stringify({
         cd_ok: ocr.cd_ok,
         datos: ocr.datos_extraidos,
@@ -406,10 +409,11 @@ export default function KycMovilScreen() {
       }));
 
       if (ocr.recomendacion === "RECHAZAR") {
-        await supabase
-          .from("kyc_sesiones")
-          .update({ estado: "FALLIDO", datos_raw: { ocr } })
-          .eq("id", sesionId);
+        await api.patch("/kyc/mobile/estado", {
+          token,
+          estado: "FALLIDO",
+          datos_raw: { ocr },
+        });
         setMensajeError("No se pudo verificar el documento. Asegurate de fotografiar bien ambas caras.");
         setEstado("error");
         return;

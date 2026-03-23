@@ -10,7 +10,7 @@ import type { PagoPropietario } from "@/lib/pagos";
 
 function LiquidacionCard({ pago }: { pago: PagoPropietario }) {
   const estado = estadoColor(pago.estado);
-  const inquilino = pago.solicitudes?.usuarios?.nombre_completo ?? "Inquilino";
+  const inquilino = pago.solicitud?.inquilino?.nombre_completo ?? "Inquilino";
 
   return (
     <View className="bg-white rounded-2xl border border-border p-4">
@@ -20,7 +20,7 @@ function LiquidacionCard({ pago }: { pago: PagoPropietario }) {
             {pago.concepto}
           </Text>
           <Text className="text-sm text-muted-foreground mt-0.5">
-            {pago.viviendas?.titulo} · {inquilino}
+            {pago.vivienda?.titulo} · {inquilino}
           </Text>
         </View>
         <Text className="text-lg font-bold text-emerald-600">
