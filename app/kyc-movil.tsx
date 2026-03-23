@@ -763,7 +763,7 @@ export default function KycMovilScreen() {
           <Text className="text-center text-xl font-bold text-white">
             ¡Chip verificado!
           </Text>
-          <Text className="mt-2 text-sm text-slate-400">Calculando puntuación final…</Text>
+          <Text className="mt-2 text-sm text-slate-400">Completando verificación…</Text>
         </View>
       </SafeAreaView>
     );
@@ -783,24 +783,12 @@ export default function KycMovilScreen() {
             <CheckCircle size={64} color="#10b981" />
           </Animated.View>
           <Text className="text-center text-2xl font-bold text-slate-900">
-            ¡Documento verificado!
+            Identidad verificada
           </Text>
 
-          {safeScore !== null && (
-            <View className="mt-5 items-center">
-              <Text className="text-5xl font-bold text-emerald-600">{safeScore}</Text>
-              <Text className="text-sm text-slate-500 mt-1">SafeScore</Text>
-            </View>
-          )}
-
-          {nfcVerificado && (
-            <View className="mt-4 flex-row items-center gap-2 bg-indigo-50 rounded-full px-4 py-2">
-              <Wifi size={14} color="#6366f1" />
-              <Text className="text-xs font-medium text-indigo-700">
-                Chip NFC verificado
-              </Text>
-            </View>
-          )}
+          <Text className="mt-4 text-center text-base text-slate-500">
+            Tu documento ha sido verificado correctamente.
+          </Text>
 
           <Text className="mt-6 text-center text-base font-medium text-slate-700">
             ¡Listo! Volvé al ordenador para continuar con tu reserva.
