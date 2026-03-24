@@ -23,6 +23,15 @@ eas build --platform ios --profile preview
 
 No test or lint commands are configured.
 
+## Environment Variables
+
+Required in app config or `.env`:
+```
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+EXPO_PUBLIC_API_URL=              # NestJS backend URL (default: http://localhost:3001)
+```
+
 ## Architecture
 
 SafeRentMobile is a React Native app (Expo 54 + TypeScript) for a rental marketplace with three user roles: **INQUILINO** (Tenant), **PROPIETARIO** (Landlord), and **ADMINISTRADOR** (Admin).
@@ -36,6 +45,7 @@ Uses **Expo Router v6** (file-based routing). Key groups under `app/`:
   - `(inquilino)/` — Tenant dashboard (INQUILINO only)
   - `(propietario)/` — Landlord dashboard (PROPIETARIO only)
   - `(admin)/` — Admin panel (ADMINISTRADOR only)
+- `kyc-movil.tsx` — Standalone mobile KYC verification flow
 
 Tabs are conditionally shown using `href: null` based on the user's role.
 
@@ -48,13 +58,21 @@ Three **React Context** providers (no Redux):
 
 Root layout (`app/_layout.tsx`) wraps only `AuthProvider`; role-specific contexts are consumed deeper in the tree. Contexts expose a `recargar()` function for manual refresh and a `cargando` boolean for loading state.
 
-### Backend
+### Backend API (NestJS)
 
-**Supabase** (PostgreSQL + Auth) accessed via direct client calls — no intermediate API layer.
+All business data is fetched from the NestJS backend via `lib/api.ts`:
+- **URL**: `EXPO_PUBLIC_API_URL` env var (default: `http://localhost:3001`)
+- **Auth**: Supabase token -> POST /api/v1/auth/exchange -> SafeRent JWT -> stored in AsyncStorage
+- **All api.* calls** auto-inject JWT via Authorization header
 
-Key tables: `usuarios`, `viviendas`, `solicitudes`, `contratos`, `pagos`.
+**Supabase** is used ONLY for:
+- Auth state management (onAuthStateChange, session persistence via AsyncStorage)
+- Storage URLs (displaying uploaded images/documents)
+
+Key tables (managed by NestJS backend, NOT accessed directly): `usuarios`, `viviendas`, `solicitudes`, `contratos`, `pagos`.
 
 Service functions live in `lib/`:
+- `lib/api.ts` — HTTP client to NestJS backend (JWT auto-injection)
 - `lib/supabase.ts` — Client init (AsyncStorage session persistence)
 - `lib/auth.ts` — Login, register, fetch current user
 - `lib/viviendas.ts` — Property CRUD and search/filter
@@ -62,6 +80,8 @@ Service functions live in `lib/`:
 - `lib/contratos.ts` — Digital contracts
 - `lib/pagos.ts` — Payments
 - `lib/utils.ts` — Shared helpers (e.g., `formatCurrency`)
+- `lib/bac.ts` — NFC Basic Access Control (BAC) for e-passports
+- `lib/nfc-passport.ts` — NFC passport chip reading (ICAO 9303)
 
 All service functions return `{ data: T | null, error: string | null }` tuples with user-facing error messages in Spanish.
 

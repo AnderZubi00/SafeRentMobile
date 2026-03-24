@@ -16,6 +16,7 @@ Lee **solo los skills activados** por el contexto de la tarea.
 | Componentes UI, diseño, pantallas, estilos | `.agent/skills/nativewind-ui.skill.md` |
 | Navegación, rutas, layouts, tab guards | `.agent/skills/navigation.skill.md` |
 | Queries Supabase, RLS, storage, migraciones | `.agent/skills/supabase-data.skill.md` |
+| Estructura de app, modulos, contextos, comunicacion con backend | `.agent/skills/architecture.skill.md` |
 
 **Regla**: No cargues todos los skills al inicio. Identifica el dominio de la tarea → carga solo los skills relevantes → ejecuta.
 
@@ -87,7 +88,7 @@ Archivo: kyc_camera_patterns.md  (imágenes/cámara)
 Runtime:    Expo 54 / React Native 0.81 / React 19
 Router:     Expo Router v6 (file-based)
 Styling:    NativeWind 4 + TailwindCSS 3 (className en RN)
-Backend:    Supabase (Auth + PostgreSQL + Storage)
+Backend:    NestJS 11 API (via lib/api.ts) + Supabase (Auth + Storage only)
 Tipos:      TypeScript strict, path alias @/*
 Iconos:     Lucide React Native
 Storage:    AsyncStorage (sesión) + Expo Secure Store (credenciales)
