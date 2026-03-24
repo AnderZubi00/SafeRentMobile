@@ -122,6 +122,7 @@ export default function KycMovilScreen() {
   const soporteConfiableRef = useRef<string | null>(null);
   const dobConfiableRef = useRef<string | null>(null);
   const expiryConfiableRef = useRef<string | null>(null);
+  const rawExpiryRef = useRef<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
   // Success animation
@@ -256,7 +257,7 @@ export default function KycMovilScreen() {
       nfcTimeoutRef.current = id;
     });
 
-    const result = await Promise.race([
+    let result = await Promise.race([
       verifyPassportNfc({
         documentNumber,
         dateOfBirth,
@@ -269,6 +270,21 @@ export default function KycMovilScreen() {
     if (nfcTimeoutRef.current) {
       clearTimeout(nfcTimeoutRef.current);
       nfcTimeoutRef.current = null;
+    }
+
+    // Reintentar BAC con fecha de expiración cruda si falló con SW 6300
+    if (
+      !result.success &&
+      result.redirectTo === "mrz_scan" &&
+      rawExpiryRef.current &&
+      rawExpiryRef.current !== dateOfExpiry
+    ) {
+      console.log("[NFC BAC] Reintentando con expiry cruda:", rawExpiryRef.current);
+      result = await verifyPassportNfc({
+        documentNumber,
+        dateOfBirth,
+        dateOfExpiry: rawExpiryRef.current,
+      });
     }
 
     if (!result.success && result.redirectTo === "mrz_scan") {
@@ -426,7 +442,7 @@ export default function KycMovilScreen() {
 
       // Preservar campos MRZ validados por el servidor (dígito verificador ICAO 9303)
       const mrzDebug = (ocr as unknown as {
-        mrz_debug?: { soporteValid?: boolean; dobValid?: boolean; expiryValid?: boolean; dob?: string; expiry?: string }
+        mrz_debug?: { soporteValid?: boolean; dobValid?: boolean; expiryValid?: boolean; dob?: string; expiry?: string; rawExpiry?: string; rawDob?: string }
       }).mrz_debug;
       if (ocr.datos_extraidos.numero_soporte && mrzDebug?.soporteValid) {
         soporteConfiableRef.current = ocr.datos_extraidos.numero_soporte;
@@ -436,6 +452,9 @@ export default function KycMovilScreen() {
       }
       if (mrzDebug?.expiryValid && mrzDebug.expiry) {
         expiryConfiableRef.current = mrzDebug.expiry;
+      }
+      if (mrzDebug?.rawExpiry) {
+        rawExpiryRef.current = mrzDebug.rawExpiry;
       }
 
       const canNfc = nfcSoportado &&
