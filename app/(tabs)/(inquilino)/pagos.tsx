@@ -19,7 +19,7 @@ function PagoCard({ pago }: { pago: Pago }) {
             {pago.concepto}
           </Text>
           <Text className="text-sm text-muted-foreground mt-0.5">
-            {pago.viviendas?.titulo} · {pago.viviendas?.ciudad}
+            {pago.vivienda?.titulo} · {pago.vivienda?.ciudad}
           </Text>
         </View>
         <Text className="text-lg font-bold text-primary">
