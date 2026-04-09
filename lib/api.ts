@@ -1,21 +1,21 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 const TOKEN_KEY = "saferent_jwt";
 
-/** Almacena el JWT del backend en AsyncStorage */
+/** Almacena el JWT del backend en SecureStore (Keychain/EncryptedSharedPreferences) */
 export async function setBackendToken(token: string): Promise<void> {
-  await AsyncStorage.setItem(TOKEN_KEY, token);
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 /** Obtiene el JWT almacenado */
 export async function getBackendToken(): Promise<string | null> {
-  return AsyncStorage.getItem(TOKEN_KEY);
+  return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
 /** Elimina el JWT almacenado */
 export async function clearBackendToken(): Promise<void> {
-  await AsyncStorage.removeItem(TOKEN_KEY);
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
 async function request<T>(
