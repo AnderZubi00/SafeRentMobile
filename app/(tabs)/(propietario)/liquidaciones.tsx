@@ -1,7 +1,7 @@
 import { View, Text, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CreditCard } from "lucide-react-native";
-import { usePropietario } from "@/context/PropietarioContext";
+import { usePropietario } from "@/store/propietarioStore";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/EmptyState";

@@ -1,30 +1,13 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { create } from "zustand";
 import {
   obtenerSolicitudesInquilino,
   type Solicitud,
 } from "@/lib/solicitudes";
 import { obtenerPagosInquilino, type Pago } from "@/lib/pagos";
-import { obtenerContratoBySolicitud } from "@/lib/contratos";
-
-export interface ContratoResumen {
-  id: string;
-  firmado_propietario: boolean;
-  firmado_inquilino: boolean;
-  pdf_borrador_url: string | null;
-  pdf_final_url: string | null;
-  fecha_firma_completa: string | null;
-}
+import { obtenerContratoBySolicitud, type ContratoDigital } from "@/lib/contratos";
 
 export interface SolicitudConContrato extends Solicitud {
-  contrato?: ContratoResumen | null;
+  contrato?: ContratoDigital | null;
 }
 
 export interface DocumentoInquilino {
@@ -45,16 +28,12 @@ interface InquilinoState {
   documentos: DocumentoInquilino[];
   pagos: Pago[];
   cargando: boolean;
+  cargar: () => Promise<void>;
   recargar: () => Promise<void>;
+  reset: () => void;
 }
 
-const InquilinoContext = createContext<InquilinoState>({
-  solicitudes: [],
-  documentos: [],
-  pagos: [],
-  cargando: true,
-  recargar: async () => {},
-});
+let _cargarRunning = false;
 
 function derivarDocumentos(
   solicitudes: SolicitudConContrato[]
@@ -127,14 +106,21 @@ function derivarDocumentos(
   return docs;
 }
 
-export function InquilinoProvider({ children }: { children: ReactNode }) {
-  const [solicitudes, setSolicitudes] = useState<SolicitudConContrato[]>([]);
-  const [documentos, setDocumentos] = useState<DocumentoInquilino[]>([]);
-  const [pagos, setPagos] = useState<Pago[]>([]);
-  const [cargando, setCargando] = useState(true);
+const initial = {
+  solicitudes: [] as SolicitudConContrato[],
+  documentos: [] as DocumentoInquilino[],
+  pagos: [] as Pago[],
+  cargando: false,
+};
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
+export const useInquilinoStore = create<InquilinoState>((set, get) => ({
+  ...initial,
+
+  cargar: async () => {
+    if (_cargarRunning || get().solicitudes.length > 0) return;
+    _cargarRunning = true;
+    set({ cargando: true });
+
     try {
       const [solResult, pagosResult] = await Promise.all([
         obtenerSolicitudesInquilino(),
@@ -142,9 +128,8 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
       ]);
 
       const conContratos: SolicitudConContrato[] = [];
-
       for (const sol of solResult.data) {
-        let contrato: ContratoResumen | null = null;
+        let contrato: ContratoDigital | null = null;
         if (sol.estado === "ACEPTADA") {
           const { data } = await obtenerContratoBySolicitud(sol.id);
           contrato = data;
@@ -152,32 +137,33 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
         conContratos.push({ ...sol, contrato });
       }
 
-      setSolicitudes(conContratos);
-      setDocumentos(derivarDocumentos(conContratos));
-      setPagos(pagosResult.data);
+      set({
+        solicitudes: conContratos,
+        documentos: derivarDocumentos(conContratos),
+        pagos: pagosResult.data,
+        cargando: false,
+      });
     } catch (err) {
       console.error("Error cargando datos del inquilino:", err);
+      set({ cargando: false });
     } finally {
-      setCargando(false);
+      _cargarRunning = false;
     }
-  }, []);
+  },
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  recargar: async () => {
+    _cargarRunning = false;
+    set({ solicitudes: [], documentos: [], pagos: [] });
+    await get().cargar();
+  },
 
-  const value = useMemo<InquilinoState>(
-    () => ({ solicitudes, documentos, pagos, cargando, recargar: cargar }),
-    [solicitudes, documentos, pagos, cargando, cargar]
-  );
+  reset: () => {
+    _cargarRunning = false;
+    set({ ...initial });
+  },
+}));
 
-  return (
-    <InquilinoContext.Provider value={value}>
-      {children}
-    </InquilinoContext.Provider>
-  );
-}
-
+/** Alias retro-compatible */
 export function useInquilino() {
-  return useContext(InquilinoContext);
+  return useInquilinoStore();
 }

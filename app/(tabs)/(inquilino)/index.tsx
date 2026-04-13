@@ -2,8 +2,8 @@ import { View, Text, ScrollView, RefreshControl, Pressable } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Home, FileText, CreditCard, Clock, ShieldCheck } from "lucide-react-native";
 import { router } from "expo-router";
-import { useAuth } from "@/context/AuthContext";
-import { useInquilino } from "@/context/InquilinoContext";
+import { useAuth } from "@/store/authStore";
+import { useInquilino } from "@/store/inquilinoStore";
 import { StatsCard } from "@/components/StatsCard";
 import { SolicitudCard } from "@/components/SolicitudCard";
 import { Skeleton } from "@/components/ui/Skeleton";

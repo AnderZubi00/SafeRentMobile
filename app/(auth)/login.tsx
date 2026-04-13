@@ -14,7 +14,7 @@ import { Shield, Mail, Lock } from "lucide-react-native";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { loginConSupabase, rutaSegunRol } from "@/lib/auth";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 export default function LoginScreen() {
   const router = useRouter();

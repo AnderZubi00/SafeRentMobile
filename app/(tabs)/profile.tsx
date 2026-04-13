@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Lock,
 } from "lucide-react-native";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";

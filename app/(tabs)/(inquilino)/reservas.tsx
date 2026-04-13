@@ -1,7 +1,7 @@
 import { View, Text, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FileText } from "lucide-react-native";
-import { useInquilino } from "@/context/InquilinoContext";
+import { useInquilino } from "@/store/inquilinoStore";
 import { SolicitudCard } from "@/components/SolicitudCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/EmptyState";

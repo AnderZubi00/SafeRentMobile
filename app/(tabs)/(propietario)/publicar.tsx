@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { publicarVivienda } from "@/lib/viviendas";
-import { usePropietario } from "@/context/PropietarioContext";
+import { usePropietario } from "@/store/propietarioStore";
 
 const MOTIVOS_OPCIONES = [
   { label: "Estudios", value: "Estudios" },

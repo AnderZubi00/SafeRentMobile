@@ -1,12 +1,12 @@
 import { View, Text, FlatList, RefreshControl, Linking, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FileText, ExternalLink, File, Shield, BookOpen } from "lucide-react-native";
-import { useInquilino } from "@/context/InquilinoContext";
+import { useInquilino } from "@/store/inquilinoStore";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate } from "@/lib/utils";
-import type { DocumentoInquilino } from "@/context/InquilinoContext";
+import type { DocumentoInquilino } from "@/store/inquilinoStore";
 
 const tipoIcono = {
   identidad: Shield,

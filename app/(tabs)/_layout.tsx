@@ -11,7 +11,7 @@ import {
   ClipboardList,
   BookOpen,
 } from "lucide-react-native";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import type { Rol } from "@/lib/auth";
 
 function getTabColor(rol: Rol | undefined) {

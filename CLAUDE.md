@@ -51,12 +51,12 @@ Tabs are conditionally shown using `href: null` based on the user's role.
 
 ### State Management
 
-Three **React Context** providers (no Redux):
-- `AuthContext` — Auth state, session persistence via AsyncStorage, Supabase auth listener
-- `PropietarioContext` — Landlord data (viviendas, solicitudes, pagos) loaded in parallel
-- `InquilinoContext` — Tenant data (solicitudes, documentos, pagos)
+**Zustand** stores (no Context, no Redux):
+- `store/authStore.ts` — Auth state + Supabase listener. Hook: `useAuth()` / `useAuthStore()`. `_init()` is called once from the root layout via `AuthInit` component.
+- `store/propietarioStore.ts` — Landlord data (viviendas, solicitudes, pagos). Hook: `usePropietario()` / `usePropietarioStore()`. `cargar()` is called from the propietario layout on mount (idempotent).
+- `store/inquilinoStore.ts` — Tenant data (solicitudes, documentos, pagos). Hook: `useInquilino()` / `useInquilinoStore()`. `cargar()` called from the inquilino layout on mount (idempotent).
 
-Root layout (`app/_layout.tsx`) wraps only `AuthProvider`; role-specific contexts are consumed deeper in the tree. Contexts expose a `recargar()` function for manual refresh and a `cargando` boolean for loading state.
+All stores expose `recargar()` for forced refresh and `reset()` called automatically on logout. Module-level `_cargarRunning` flags prevent double-load in StrictMode.
 
 ### Backend API (NestJS)
 
@@ -72,16 +72,22 @@ All business data is fetched from the NestJS backend via `lib/api.ts`:
 Key tables (managed by NestJS backend, NOT accessed directly): `usuarios`, `viviendas`, `solicitudes`, `contratos`, `pagos`.
 
 Service functions live in `lib/`:
-- `lib/api.ts` — HTTP client to NestJS backend (JWT auto-injection)
+- `lib/api.ts` — HTTP client to NestJS backend (JWT auto-injection via SecureStore)
 - `lib/supabase.ts` — Client init (AsyncStorage session persistence)
 - `lib/auth.ts` — Login, register, fetch current user
-- `lib/viviendas.ts` — Property CRUD and search/filter
-- `lib/solicitudes.ts` — Application lifecycle (create, accept, reject)
-- `lib/contratos.ts` — Digital contracts
-- `lib/pagos.ts` — Payments
-- `lib/utils.ts` — Shared helpers (e.g., `formatCurrency`)
+- `lib/viviendas.ts` — Property CRUD, search/filter, wizard borradores (5 fases), signed URL uploads
+- `lib/solicitudes.ts` — Application lifecycle (create with doc uploads, accept, reject, estado)
+- `lib/contratos.ts` — Digital contracts (create, sign, get by solicitud)
+- `lib/pagos.ts` — Payments (list, register, fee-preview, create PaymentIntent)
+- `lib/kyc.ts` — KYC: sesión, estado, completar-propietario, analizar OCR, endpoints móvil sin JWT
+- `lib/stripe-connect.ts` — Stripe Connect onboarding (mock, onboard, refresh, status)
+- `lib/admin.ts` — Admin: stats, propietarios, toggle KYC
+- `lib/utils.ts` — Shared helpers (formatCurrency, formatDate, estadoColor)
 - `lib/bac.ts` — NFC Basic Access Control (BAC) for e-passports
 - `lib/nfc-passport.ts` — NFC passport chip reading (ICAO 9303)
+
+Hooks:
+- `hooks/useNotifications.ts` — WebSocket hook (socket.io-client, Bearer auth, /notifications namespace)
 
 All service functions return `{ data: T | null, error: string | null }` tuples with user-facing error messages in Spanish.
 

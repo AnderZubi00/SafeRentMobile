@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

@@ -1,15 +1,20 @@
+import { useEffect } from "react";
 import { Stack } from "expo-router";
-import { PropietarioProvider } from "@/context/PropietarioContext";
+import { usePropietarioStore } from "@/store/propietarioStore";
 
 export default function PropietarioLayout() {
+  const cargar = usePropietarioStore((s) => s.cargar);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   return (
-    <PropietarioProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#f8fafc" },
-        }}
-      />
-    </PropietarioProvider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: "#f8fafc" },
+      }}
+    />
   );
 }

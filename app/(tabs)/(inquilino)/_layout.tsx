@@ -1,15 +1,20 @@
+import { useEffect } from "react";
 import { Stack } from "expo-router";
-import { InquilinoProvider } from "@/context/InquilinoContext";
+import { useInquilinoStore } from "@/store/inquilinoStore";
 
 export default function InquilinoLayout() {
+  const cargar = useInquilinoStore((s) => s.cargar);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   return (
-    <InquilinoProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#f8fafc" },
-        }}
-      />
-    </InquilinoProvider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: "#f8fafc" },
+      }}
+    />
   );
 }

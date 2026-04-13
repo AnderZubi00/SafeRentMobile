@@ -14,7 +14,7 @@ import { Shield, ArrowLeft } from "lucide-react-native";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { registrarConSupabase, rutaSegunRol, type Rol } from "@/lib/auth";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 const roles: { value: Rol; label: string; desc: string }[] = [
   {

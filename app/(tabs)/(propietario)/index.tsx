@@ -1,8 +1,8 @@
 import { View, Text, ScrollView, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Home, FileText, CreditCard, Clock } from "lucide-react-native";
-import { useAuth } from "@/context/AuthContext";
-import { usePropietario } from "@/context/PropietarioContext";
+import { useAuth } from "@/store/authStore";
+import { usePropietario } from "@/store/propietarioStore";
 import { StatsCard } from "@/components/StatsCard";
 import { SolicitudCard } from "@/components/SolicitudCard";
 import { PropertyCard } from "@/components/PropertyCard";
