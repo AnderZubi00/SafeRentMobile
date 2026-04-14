@@ -65,6 +65,7 @@ export interface FiltrosVivienda {
   precioMax?: number;
   habitaciones?: number;
   soloVerificadas?: boolean;
+  ordenar?: string;
   page?: number;
   limit?: number;
 }

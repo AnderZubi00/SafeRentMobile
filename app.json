@@ -24,7 +24,9 @@
         ]
       },
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+        "com.apple.developer.nfc.readersession.formats": [
+          "TAG"
+        ]
       }
     },
     "android": {
@@ -78,7 +80,9 @@
         {
           "nfcPermission": "SafeRent necesita NFC para verificar la autenticidad de tu DNI"
         }
-      ]
+      ],
+      "@stripe/stripe-react-native",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},
