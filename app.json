@@ -81,7 +81,12 @@
           "nfcPermission": "SafeRent necesita NFC para verificar la autenticidad de tu DNI"
         }
       ],
-      "@stripe/stripe-react-native",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.saferent.mobile"
+        }
+      ],
       "@react-native-community/datetimepicker"
     ],
     "extra": {
