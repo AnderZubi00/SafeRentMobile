@@ -1,4 +1,5 @@
 import { api } from "./api";
+import * as ImageManipulator from "expo-image-manipulator";
 
 export type MotivoTemporalidad =
   | "Estudios"
@@ -119,6 +120,67 @@ export async function publicarVivienda(
       data: null,
       error: e instanceof Error ? e.message : "Error al publicar vivienda",
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compresión de imágenes
+// ---------------------------------------------------------------------------
+
+/**
+ * Redimensiona (máx 1280px lado largo) y comprime a JPEG 0.80 usando expo-image-manipulator.
+ * Si la imagen ya es más pequeña que maxPx, solo aplica la compresión.
+ */
+export async function comprimirFoto(uri: string, maxPx = 1280): Promise<string> {
+  // Primera pasada: obtener dimensiones sin modificar la imagen
+  const { width, height } = await ImageManipulator.manipulateAsync(uri, [], {
+    compress: 1,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+
+  const actions: ImageManipulator.Action[] = [];
+  if (Math.max(width, height) > maxPx) {
+    actions.push(
+      width >= height
+        ? { resize: { width: maxPx } }
+        : { resize: { height: maxPx } },
+    );
+  }
+
+  const result = await ImageManipulator.manipulateAsync(uri, actions, {
+    compress: 0.8,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+
+  return result.uri;
+}
+
+/**
+ * Comprime la imagen, obtiene la signed URL del backend y sube a Supabase Storage.
+ * Devuelve la publicUrl de la foto subida, o null si falla.
+ */
+export async function subirFotoVivienda(
+  viviendaId: string,
+  localUri: string,
+): Promise<{ publicUrl: string | null; error: string | null }> {
+  try {
+    const uriComprimida = await comprimirFoto(localUri);
+    const filename = `foto-${Date.now()}.jpg`;
+
+    const { signedUrl, publicUrl } = await obtenerUrlFotoUpload(viviendaId, filename);
+
+    const blob = await (await fetch(uriComprimida)).blob();
+    const res = await fetch(signedUrl, {
+      method: "PUT",
+      body: blob,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+
+    return res.ok
+      ? { publicUrl, error: null }
+      : { publicUrl: null, error: "Error al subir la foto" };
+  } catch (e) {
+    return { publicUrl: null, error: e instanceof Error ? e.message : "Error" };
   }
 }
 
