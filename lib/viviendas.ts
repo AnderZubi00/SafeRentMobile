@@ -57,6 +57,26 @@ export interface PublicarViviendaInput {
   activa?: boolean;
 }
 
+export interface Ocupacion {
+  fecha_entrada: string;
+  fecha_salida: string;
+}
+
+export interface BloqueoFecha {
+  id: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  motivo: string | null;
+}
+
+export interface Disponibilidad {
+  disponible_desde: string | null;
+  estancia_minima: number;
+  estancia_maxima: number;
+  ocupaciones: Ocupacion[];
+  bloqueos: BloqueoFecha[];
+}
+
 export interface FiltrosVivienda {
   provincia?: string;
   ciudad?: string;
@@ -99,6 +119,45 @@ export async function publicarVivienda(
       data: null,
       error: e instanceof Error ? e.message : "Error al publicar vivienda",
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Disponibilidad y bloqueos
+// ---------------------------------------------------------------------------
+
+export async function obtenerDisponibilidad(
+  id: string
+): Promise<{ data: Disponibilidad | null; error: string | null }> {
+  try {
+    const data = await api.get<Disponibilidad>(`/viviendas/${id}/disponibilidad`);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error" };
+  }
+}
+
+export async function crearBloqueo(
+  viviendaId: string,
+  input: { fecha_inicio: string; fecha_fin: string; motivo?: string }
+): Promise<{ data: BloqueoFecha | null; error: string | null }> {
+  try {
+    const data = await api.post<BloqueoFecha>(`/viviendas/${viviendaId}/bloqueos`, input);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error al crear bloqueo" };
+  }
+}
+
+export async function eliminarBloqueo(
+  viviendaId: string,
+  bloqueoId: string
+): Promise<{ error: string | null }> {
+  try {
+    await api.delete(`/viviendas/${viviendaId}/bloqueos/${bloqueoId}`);
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error al eliminar bloqueo" };
   }
 }
 

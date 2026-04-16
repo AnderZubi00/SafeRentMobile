@@ -27,7 +27,7 @@ import { TouchableOpacity } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
+import { obtenerViviendaById, obtenerDisponibilidad, type Vivienda, type Disponibilidad } from "@/lib/viviendas";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 
@@ -38,6 +38,9 @@ export default function ViviendaDetailScreen() {
   const [vivienda, setVivienda] = useState<Vivienda | null>(null);
   const [loading, setLoading] = useState(true);
   const [fotoIndex, setFotoIndex] = useState(0);
+
+  const [disponibilidad, setDisponibilidad] = useState<Disponibilidad | null>(null);
+  const [conflicto, setConflicto] = useState<string | null>(null);
 
   // Estado del bottom sheet de fechas
   const [modalFechas, setModalFechas] = useState(false);
@@ -91,6 +94,8 @@ export default function ViviendaDetailScreen() {
   function handleReservar() {
     if (!usuario) { router.push("/(auth)/login"); return; }
     if (usuario.rol !== "INQUILINO") return;
+    obtenerDisponibilidad(id!).then(({ data }) => setDisponibilidad(data));
+    setConflicto(null);
     setPickingEntrada(true);
     setShowPicker(Platform.OS === "ios");
     setModalFechas(true);
@@ -98,6 +103,7 @@ export default function ViviendaDetailScreen() {
 
   function onChangeFecha(_: unknown, selected?: Date) {
     if (!selected) return;
+    setConflicto(null);
     if (pickingEntrada) {
       setFechaEntrada(selected);
       if (selected >= fechaSalida) {
@@ -113,6 +119,31 @@ export default function ViviendaDetailScreen() {
 
   function confirmarFechas() {
     if (!estanciaValida) return;
+
+    if (disponibilidad?.disponible_desde) {
+      const dispDesde = new Date(disponibilidad.disponible_desde);
+      if (fechaEntrada < dispDesde) {
+        setConflicto(`Disponible desde ${formatDate(disponibilidad.disponible_desde)}`);
+        return;
+      }
+    }
+
+    const rangos = [
+      ...(disponibilidad?.ocupaciones ?? []).map((o) => ({
+        inicio: new Date(o.fecha_entrada),
+        fin: new Date(o.fecha_salida),
+      })),
+      ...(disponibilidad?.bloqueos ?? []).map((b) => ({
+        inicio: new Date(b.fecha_inicio),
+        fin: new Date(b.fecha_fin),
+      })),
+    ];
+
+    if (rangos.some(({ inicio, fin }) => fechaEntrada < fin && fechaSalida > inicio)) {
+      setConflicto("Las fechas seleccionadas no están disponibles");
+      return;
+    }
+
     setModalFechas(false);
     const fmt = (d: Date) => d.toISOString().split("T")[0];
     router.push({
@@ -316,6 +347,13 @@ export default function ViviendaDetailScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* Error de disponibilidad */}
+              {conflicto && (
+                <View className="mx-6 mb-3 bg-rose-50 rounded-xl px-4 py-3">
+                  <Text className="text-sm text-rose-600 text-center">{conflicto}</Text>
+                </View>
+              )}
 
               {/* Confirmar */}
               <View className="px-6 pb-4">
