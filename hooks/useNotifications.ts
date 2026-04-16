@@ -29,10 +29,12 @@ export function useNotifications(
   useEffect(() => {
     if (!enabled) return;
 
+    let cancelled = false;
     let socket: Socket;
 
     async function conectar() {
       const token = await getBackendToken();
+      if (cancelled) return;
 
       socket = io(`${API_URL}/notifications`, {
         transports: ["websocket"],
@@ -50,6 +52,7 @@ export function useNotifications(
     conectar();
 
     return () => {
+      cancelled = true;
       socket?.disconnect();
       socketRef.current = null;
     };
